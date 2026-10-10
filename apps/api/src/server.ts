@@ -2,6 +2,8 @@
  * API entrypoint. One lightweight Express app hosting all app domains
  * (ADR-002: monolith with module boundaries). Versioned REST under /api.
  */
+import './env.js'; // side-effect: load .env BEFORE db/client snapshots process.env
+
 import cors from 'cors';
 import express from 'express';
 

@@ -36,6 +36,21 @@ async function main() {
   }
 
   await admin.end();
+
+  /**
+   * Grant on the target database (idempotent). Why this exists: if migrations
+   * ever ran as the OS superuser (e.g. before .env was created), tables come
+   * out owned by that user and the app role gets "permission denied" at
+   * runtime — exactly the failure we hit on 2026-10-10. Re-running db:up
+   * repairs grants without a manual psql session.
+   */
+  const app = new Client({ connectionString: `postgres://localhost:5432/${DB_NAME}` });
+  await app.connect();
+  await app.query(`GRANT ALL ON SCHEMA public TO ${ROLE}`);
+  await app.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${ROLE}`);
+  await app.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${ROLE}`);
+  await app.end();
+  console.log(`✓ grants ensured for ${ROLE} on ${DB_NAME}.public`);
   console.log(`\n DATABASE_URL="postgres://${ROLE}:local_dev_password@localhost:5432/${DB_NAME}"`);
   console.log(' (this is a DEV credential — keep it out of committed files)');
 }

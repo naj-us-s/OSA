@@ -80,6 +80,7 @@ TMDB key: create an account at themoviedb.org → Settings → API → copy the 
 | `ECONNREFUSED ::1:5432` in API log | Postgres.app not running | start Postgres.app, retry |
 | Dashboard panels show red error text | API down | `npm run dev:api`; panels recover on refetch |
 | `503 db_unavailable` responses | DB stopped mid-session | start Postgres; API recovers without restart |
+| `permission denied for table …` | tables owned by the wrong role (migrations ran outside `.env`) | `npm run db:up` (re-grants), then restart the API |
 | `db:up` fails | no permission on `postgres` DB | run Postgres.app's default init once |
 | Port already in use | stale dev server | `lsof -iTCP:5171 -sTCP:LISTEN` then kill that PID |
 | `@theme blocks must only contain custom properties` | Tailwind v4 syntax error in `packages/ui-theme` | edit tokens inside `@theme { }`, base rules in `@layer base { }` |

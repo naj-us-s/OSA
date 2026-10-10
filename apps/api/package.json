@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "test": "vitest run",
-    "typecheck": "tsc",
+    "typecheck": "tsc --noEmit",
     "db:up": "tsx scripts/db-up.ts",
     "db:migrate": "tsx scripts/db-migrate.ts"
   },

@@ -2,7 +2,10 @@
   "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "outDir": "dist"
+    "outDir": "dist",
+    // The shared base is typecheck-only (noEmit). The API is the one workspace
+    // that must emit runnable JS for `npm start -w @pos/api`.
+    "noEmit": false
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts", "drizzle.config.ts"]
 }
