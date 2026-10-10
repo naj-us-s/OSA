@@ -1,0 +1,9 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    // shared-types is imported directly as TS source by all workspaces
+    // (monorepo-internal package, no build step needed).
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}

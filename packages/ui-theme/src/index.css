@@ -1,0 +1,115 @@
+/*
+ * =============================================================================
+ * EDITORIAL SYSTEMS DESIGN — shared design tokens
+ * Swiss Modernism × Neo-Brutalism × Technical Documentation
+ * =============================================================================
+ * Derived from the reference imagery in docs/design-refs/ (see README there):
+ *   - cream shell + black "instrument panel" content surfaces (ref 1)
+ *   - acid lime for active/primary, restrained coral as secondary accent (ref 1)
+ *   - hard offset shadows (no blur) on buttons/active nav (ref 1)
+ *   - huge display headings, tiny uppercase mono labels (refs 1, 6)
+ *   - thin gray rule tables / spec-sheet details (ref 6)
+ *   - rounded utility blocks for cards, hard edges for controls (ref 5)
+ *
+ * Usage: import '@pos/ui-theme' in each app's global CSS entry, then use the
+ * Tailwind utilities generated from these tokens (bg-cream, text-lime-b, ...)
+ * plus the component classes below (.panel, .btn-lime, .hairline ...).
+ * =============================================================================
+ */
+
+@import 'tailwindcss';
+
+@theme {
+  /* -- palette -------------------------------------------------------------- */
+  --color-cream: #f2efe6; /* app shell background            */
+  --color-cream-2: #e9e5d8; /* slightly recessed cream         */
+  --color-ink: #0d0d0d; /* text & structure on cream       */
+  --color-panel: #0d0d0d; /* black instrument panel          */
+  --color-panel-2: #1a1a17; /* panel hover / raised rows       */
+  --color-paper: #f7f4ea; /* text on black panels            */
+  --color-lime-b: #d9ff3d; /* acid lime — primary accent      */
+  --color-lime-dim: #aacc25; /* lime, darker variant            */
+  --color-coral: #ff5a45; /* secondary accent, used sparingly*/
+  --color-meta: #8b8b83; /* gray metadata                   */
+  --color-meta-dark: #55554f; /* gray metadata on black          */
+  --color-line: rgba(13, 13, 13, 0.12); /* hairline on cream  */
+  --color-line-l: rgba(247, 244, 234, 0.18); /* hairline on panel */
+
+  /* -- type ----------------------------------------------------------------- */
+  --font-display: 'Space Grotesk', 'Archivo', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* -- motion / misc -------------------------------------------------------- */
+  --shadow-offset: 3px 3px 0 0 #ff5a45; /* the signature hard offset shadow */
+  --shadow-offset-lime: 3px 3px 0 0 #d9ff3d;
+}
+
+/* -- base -------------------------------------------------------------------- */
+
+@layer base {
+  body {
+    background: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+  }
+
+  /* Small system label: mono, uppercase, tracked out — the "technical doc" voice */
+  .syslabel {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+  }
+
+  /* Black instrument panel — the iOS-reference "Content" / Tasks-panel look.   */
+  .panel {
+    background: var(--color-panel);
+    color: var(--color-paper);
+    border-radius: 1rem;
+    border: 1px solid transparent;
+  }
+
+  /* Lime-bordered panel variant used for focus surfaces (Tasks panel, ref 1).  */
+  .panel-lime {
+    border-color: var(--color-lime-b);
+  }
+
+  /* Primary CTA: acid lime fill with coral hard offset shadow (NEW TASK, ref1).*/
+  .btn-lime {
+    background: var(--color-lime-b);
+    color: #0d0d0d;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.6rem 1.1rem;
+    border-radius: 9999px;
+    box-shadow: var(--shadow-offset);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .btn-lime:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 0 var(--color-coral);
+  }
+  .btn-lime:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
+  /* Active nav pill: lime fill + hard lime offset (Tasks item, ref 1).        */
+  .nav-active {
+    background: var(--color-lime-b);
+    box-shadow: 3px 3px 0 0 var(--color-coral);
+  }
+
+  .hairline {
+    border-color: var(--color-line);
+  }
+}

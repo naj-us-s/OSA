@@ -1,0 +1,31 @@
+{
+  "name": "personal-os-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Personal OS ecosystem: Personal OS, Vocab, Media Tracker",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:api": "npm run dev -w @pos/api",
+    "dev:os": "npm run dev -w @pos/personal-os",
+    "dev:vocab": "npm run dev -w @pos/vocab",
+    "dev:media": "npm run dev -w @pos/media-tracker",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test -w @pos/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:up": "npm run db:up -w @pos/api",
+    "db:migrate": "npm run db:migrate -w @pos/api"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "npm-run-all": "^4.1.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.6.0"
+  }
+}
