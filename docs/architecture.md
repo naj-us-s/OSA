@@ -1,123 +1,117 @@
 # Architecture
 
-## Repository layout
+## Repository structure
 
 ```
 os/
 ├── apps/
-│   ├── api/                One Express backend (all domains, clear module boundaries)
-│   │   ├── drizzle/            generated SQL migrations
-│   │   ├── scripts/            db-up (setup), db-migrate
+│   ├── api/              Express backend (port 4000)
+│   │   ├── scripts/      db-up.ts · db-migrate.ts (local setup)
+│   │   ├── drizzle/      generated SQL migrations
 │   │   └── src/
-│   │       ├── db/schema.ts    THE schema — ownership documented inline
-│   │       ├── db/client.ts    shared pg pool (never crashes on DB loss)
-│   │       ├── errors.ts       ApiError + central error middleware
-│   │       ├── routes/         tasks · events · summaries (integration contract)
-│   │       └── server.ts       route mounting + health check
-│   ├── personal-os/        Frontend: dashboard shell (React + Vite + Tailwind v4)
-│   ├── vocab/              Frontend: library view (typography-led)
-│   └── media-tracker/      Frontend: library view (poster-led, dark canvas)
+│   │       ├── db/       client.ts (pool) · schema.ts (all tables)
+│   │       ├── routes/   tasks.ts · events.ts · summaries.ts
+│   │       ├── errors.ts ApiError + safe error middleware
+│   │       └── server.ts route mounting, CORS, /api/health
+│   ├── personal-os/      OS frontend (5171) — dashboard · tasks · events UI
+│   ├── vocab/            Vocab frontend (5172) — library shell
+│   └── media-tracker/    Media frontend (5173) — library shell
 ├── packages/
-│   ├── shared-types/       Contract types only — no DB row types (see below)
-│   ├── ui-theme/           Editorial Systems Design tokens + component classes
-│   └── config/             tsconfig.base.json
-└── docs/                   This site + design references
+│   ├── shared-types/     contract types shared by API + frontends
+│   ├── ui-theme/         Editorial Systems Design tokens (Tailwind v4)
+│   └── config/           tsconfig.base.json
+├── docs/                 this documentation + design references
+└── .env.example          environment template (real .env is git-ignored)
 ```
 
-## Application boundaries (§4, §3.3)
+## Application boundaries
 
-- **One backend, module boundaries.** ADR-002: no microservices, no event bus.
-  Each domain owns its route module, its schema tables, and its services.
-  Personal OS reaches Vocab/Media **only** through documented HTTP endpoints —
-  never by importing another domain's query code.
-- **One database, ownership by table prefix.** `tasks`/`events` belong to
-  Personal OS; `vocab_*` to Vocab; `media_*` to Media Tracker. No cross-writes.
+The three apps are distinct products in one ecosystem (§2.4):
 
-## Data ownership (§4.2)
+- **Vocab** owns vocabulary: entries, meanings, reviews, language metadata.
+- **Media Tracker** owns media: library items, progress, activity history.
+- **Personal OS** owns tasks, events, and dashboard preferences — and
+  **reads summaries** from the other two via their published endpoints.
 
-| Owner | Tables | Never |
+Personal OS must never create competing copies of Vocab/Media data (§4.2).
+
+## Data ownership (schema level)
+
+One database, one schema file, but tables are grouped by owner. Only the owning
+app's route module touches its tables:
+
+| Tables | Owner | Consumers |
 |---|---|---|
-| Personal OS | `tasks`, `events` | copies of vocab/media rows |
-| Vocab | `vocab_entries`, `vocab_meanings`, `vocab_reviews` | tasks, media |
-| Media Tracker | `media_items`, `media_activity` | vocab, tasks |
-
-Personal OS reads summaries **computed at request time** (`routes/summaries.ts`),
-so there is no mirror to drift out of sync.
+| `tasks`, `events` | Personal OS routes | OS UI |
+| `vocab_entries`, `vocab_meanings`, `vocab_reviews` | Vocab routes | Vocab UI, OS (via `/api/vocab/*` only) |
+| `media_items`, `media_activity` | Media routes | Media UI, OS (via `/api/media/*` only) |
 
 ## API design
 
-Versionless-in-dev REST under `/api`, JSON everywhere, zod validation at the
-boundary, errors as `{ error: { code, message, details? } }`.
+Consistent REST conventions:
 
-### Integration contract (§4.3) — stable
+- All routes under `/api`.
+- JSON envelopes: `{ task: ... }`, `{ tasks: [...] }`, `{ error: { code, message } }`.
+- Validation with **zod at the boundary**; DB access with Drizzle (parameterized).
+- Errors: `ApiError(status, code, message)` → middleware. Internal details are
+  logged server-side, never returned (§11).
+- Database unreachable → **503 `db_unavailable`**, not a crash (the pool has an
+  error listener; the API stays up and recovers when Postgres returns).
 
-| Endpoint | Returns | Consumer |
+### Integration contract (§4.3) — what Vocab/Media give to OS
+
+| Endpoint | Returns | Meaning |
 |---|---|---|
-| `GET /api/vocab/summary` | `VocabSummary` | OS dashboard |
-| `GET /api/vocab/recent` | last 10 entries | OS + Vocab |
-| `GET /api/media/summary` | `MediaSummary` | OS + Media |
-| `GET /api/media/recent` | last 10 items | OS |
-| `GET /api/media/in-progress` | in-progress items | OS |
+| `GET /api/vocab/summary` | `VocabSummary` | total, recent-7d, due-for-review, per-status |
+| `GET /api/vocab/recent` | `VocabRecentEntry[]` | last 10 entries |
+| `GET /api/media/summary` | `MediaSummary` | totals per status/category, favorites |
+| `GET /api/media/recent` | `MediaRecentItem[]` | last 10 added |
+| `GET /api/media/in-progress` | `MediaRecentItem[]` | watching/reading, max 10 |
 
-Types live in `packages/shared-types/src/index.ts`.
+These are **computed live from the owning app's tables** — no mirrors, no
+denormalized counters to drift. Missing/zero data yields zeros, and the OS UI
+renders loading/empty/error states honestly.
 
-### Personal OS domain
+## Data flow
 
-`GET/POST /api/tasks`, `PATCH/DELETE /api/tasks/:id`, `GET /api/tasks/today`,
-`GET /api/events/upcoming`, `POST /api/events`, `DELETE /api/events/:id`,
-`GET /api/health`.
-
-## Database design
-
-Schema: `apps/api/src/db/schema.ts` (Drizzle ORM, PostgreSQL).
-
-- UUID PKs everywhere → stable cross-app identifiers (§3.3 rule 2).
-- `jsonb` for open-ended personal input (tags, genres); typed columns for
-  anything filtered/sorted.
-- `media_items` carries **per-category progress columns** (`current_episode`,
-  `current_chapter`, `current_volume`, `current_page`), validated per category
-  in the service layer — different media types keep different progress units
-  without a polymorphic mess (§7.6).
-- `unique(external_source, external_key)` prevents duplicate library records
-  from re-searching the same provider record (§7.4).
-- `media_activity` is append-only — the history/statistics trail (§7.9).
-
-```mermaid
-erDiagram
-    tasks ||--o{ "" : "os"
-    events ||--o{ "" : "os"
-    vocab_entries ||--o{ vocab_meanings : has
-    vocab_entries ||--o{ vocab_reviews : has
-    media_items ||--o{ media_activity : emits
+```
+Browser (OS UI, :5171)
+   │  fetch('/api/...')   ← Vite dev proxy → :4000
+   ▼
+Express API (:4000)
+   ├─ routes/tasks.ts       → tasks table        (OS owns)
+   ├─ routes/events.ts      → events table       (OS owns)
+   └─ routes/summaries.ts   → vocab_*, media_*   (other apps own;
+                                                  read-only aggregate queries)
+   ▼
+PostgreSQL (personal_os db)
 ```
 
-## How data moves between applications
+Example: creating a task → `POST /api/tasks` → zod validates →
+`db.insert(tasks)` → row returned → OS "Today's tasks" panel refetches and
+renders it (verified end-to-end during milestone 1).
 
-```mermaid
-sequenceDiagram
-    participant OS as Personal OS UI
-    participant API as Express API
-    participant DB as Postgres
-    participant V as Vocab UI
-    OS->>API: GET /api/vocab/summary
-    API->>DB: SELECT count(*) GROUP BY learning_status
-    DB-->>API: aggregates
-    API-->>OS: VocabSummary
-    V->>API: POST /api/vocab/entries (milestone 3)
-    API->>DB: INSERT vocab_entries
-    Note over OS: refetch → new counts, no sync step
-```
+## Frontend ↔ API
 
-## Important architectural decisions
+- Each Vite dev server proxies `/api` → `localhost:4000`, so frontends never
+  hardcode the API port.
+- Shared contract types live in `packages/shared-types` — the single source of
+  truth for payload shapes (tasks, summaries, media enums).
+- `useResource<T>` hook: fetch + loading/error/ok states (replaces react-query
+  for now — fewer deps while contracts settle).
 
-See [adr/](adr/) — ADR-001 (stack), ADR-002 (monolith with boundaries),
-ADR-003 (providers), ADR-004 (design system).
+## Key decisions
 
-## Security summary (§11)
+See `docs/adr/`:
 
-- Server-side zod validation on every mutating route.
-- Parameterized queries only (Drizzle — no string interpolation of input).
-- Secrets in `.env` (git-ignored), `.env.example` committed without values.
-- CORS open in dev (localhost frontends); tighten at deploy time.
-- Error middleware never leaks internals; DB outages → honest `503 db_unavailable`.
-- No auth for V1: local single-user deployment (documented assumption).
+- **ADR-001** — monorepo with npm workspaces.
+- **ADR-002** — one Express backend, per-app module boundaries.
+- **ADR-003** — Postgres + Drizzle ORM.
+- **ADR-004** — provider adapters for external APIs (dictionary, media).
+
+## Future compatibility (§3.3)
+
+- Cross-app references use stable UUIDs (`CrossAppRef` in shared-types).
+- New apps add their own route module + tables + summary endpoint; the OS adds
+  a widget — no rewrite.
+- No event bus, no microservices, no speculative plugin framework.
